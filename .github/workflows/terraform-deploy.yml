@@ -1,0 +1,53 @@
+name: Terraform Deploy and Static Site Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        run: |
+          cd week7-devops-iac/terraform
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd week7-devops-iac/terraform
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        run: |
+          cd week7-devops-iac/terraform
+          terraform apply -auto-approve tfplan
+
+  deploy-static-site:
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upload static site to storage (example)
+        run: |
+          # Customize STORAGE_NAME and RESOURCE_GROUP as needed
+          STORAGE_NAME=$(terraform -chdir=week7-devops-iac/terraform output -raw storage_account_name)
+          az storage blob upload-batch -s ./week7-devops-iac/site -d \$web --account-name \$STORAGE_NAME
